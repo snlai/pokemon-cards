@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pokédex Lookup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: a handheld Pokédex shell; search bar on top, a "screen" card shows the result. */
+:root {
+  --shell: #d7263d;
+  --shell-dark: #a51a2c;
+  --bg: #f2eff0;
+  --screen: #ffffff;
+  --ink: #1e1a1c;
+  --muted: #6b6266;
+  --line: #e2dcde;
+  --accent: #2b7de9;
+  --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --shell: #b81f33; --shell-dark: #7d1422; --bg: #151213; --screen: #221d1f;
+    --ink: #f1ecee; --muted: #a59a9e; --line: #3a3235; --accent: #6aa6ff; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+  font: 16px/1.5 var(--body); padding: 32px 16px;
+}
+.dex {
+  max-width: 520px; margin: 0 auto; background: var(--shell); border-radius: 20px;
+  padding: 20px; box-shadow: inset 0 -6px 0 var(--shell-dark), 0 10px 30px rgb(0 0 0 / 0.18);
+  display: flex; flex-direction: column; gap: 16px;
+}
+.top { display: flex; align-items: center; gap: 12px; }
+.lens {
+  width: 44px; height: 44px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 35% 35%, #bfe3ff 0 18%, #3d9cf5 40%, #1458a8 100%);
+  border: 4px solid #fff;
+}
+.leds { display: flex; gap: 6px; }
+.leds i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+.leds i:nth-child(1) { background: #ff5964; } .leds i:nth-child(2) { background: #ffd23f; } .leds i:nth-child(3) { background: #3ddc84; }
+h1 { margin: 0 0 0 auto; font: 700 1.3rem/1 var(--display); color: #fff; letter-spacing: 0.06em; text-transform: uppercase; }
+
+form { display: flex; gap: 8px; }
+input {
+  flex: 1; min-width: 0; font: 500 1rem var(--body); padding: 12px 14px; border-radius: 10px;
+  border: 0; background: var(--screen); color: var(--ink);
+}
+button {
+  font: 700 0.95rem var(--display); letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 12px 18px; border-radius: 10px; border: 0; cursor: pointer;
+  background: var(--ink); color: var(--screen);
+}
+button:focus-visible, input:focus-visible { outline: 3px solid #ffd23f; outline-offset: 2px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button {
+  font: 600 0.8rem var(--body); text-transform: capitalize; letter-spacing: 0;
+  padding: 5px 10px; background: rgb(255 255 255 / 0.18); color: #fff; border-radius: 999px;
+}
+.chips button:hover { background: rgb(255 255 255 / 0.3); }
+
+.screen {
+  background: var(--screen); border-radius: 12px; padding: 20px; min-height: 340px;
+  display: flex; flex-direction: column; gap: 16px; border: 6px solid var(--shell-dark);
+}
+.head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.name { margin: 0; font: 700 2rem/1.1 var(--display); text-transform: capitalize; }
+.id { font: 500 1.1rem var(--mono); color: var(--muted); }
+.art {
+  aspect-ratio: 1; max-width: 100%; width: 260px; align-self: center;
+  background: radial-gradient(circle, var(--line) 0 55%, transparent 56%);
+  display: grid; place-items: center;
+}
+.art img { width: 100%; height: 100%; object-fit: contain; }
+.types { display: flex; gap: 6px; justify-content: center; }
+.type { font: 600 0.75rem var(--body); text-transform: uppercase; letter-spacing: 0.08em; padding: 4px 10px; border-radius: 999px; color: #fff; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; }
+.stats div { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.stats dt { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.stats dd { margin: 0; font: 500 1.15rem var(--mono); font-variant-numeric: tabular-nums; }
+.stats small { color: var(--muted); font-size: 0.8rem; }
+.msg { margin: auto; text-align: center; color: var(--muted); }
+.msg strong { display: block; color: var(--ink); font: 700 1.2rem var(--display); }
+.foot { margin: 0; font-size: 0.75rem; color: rgb(255 255 255 / 0.8); text-align: center; }
+.foot a { color: #fff; }
+</style>
+</head>
+<body>
+<main class="dex">
+  <div class="top">
+    <div class="lens" aria-hidden="true"></div>
+    <div class="leds" aria-hidden="true"><i></i><i></i><i></i></div>
+    <h1>Pokédex</h1>
+  </div>
+
+  <form id="form">
+    <label for="q" hidden>Pokémon name or number</label>
+    <input id="q" placeholder="Type a name or number, e.g. pikachu" autocomplete="off" spellcheck="false">
+    <button type="submit">Search</button>
+  </form>
+  <div class="chips" id="chips"></div>
+
+  <section class="screen" id="screen" aria-live="polite"></section>
+
+  <p class="foot">Data from <a href="https://pokeapi.co/" target="_blank" rel="noopener">PokeAPI</a></p>
+</main>
+
+<script>
+const TYPE_COLORS = {
+  normal:"#9a9a7a", fire:"#e8662b", water:"#4a86e8", electric:"#e0b100", grass:"#4fa83d", ice:"#59b8c9",
+  fighting:"#b83a2e", poison:"#9a4aa8", ground:"#c49a45", flying:"#8a8fe0", psychic:"#e8507a", bug:"#8fa31f",
+  rock:"#a8913c", ghost:"#6a55a0", dragon:"#6440e0", dark:"#5c4a40", steel:"#8a8aa8", fairy:"#d77ab0"
+};
+const screen = document.getElementById("screen");
+const input = document.getElementById("q");
+let current;
+
+["pikachu", "charizard", "bulbasaur", "gengar", "eevee", "25"].forEach(n => {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = n;
+  b.onclick = () => { input.value = n; lookup(n); };
+  document.getElementById("chips").appendChild(b);
+});
+
+function message(title, text) {
+  screen.innerHTML = `<div class="msg"><strong></strong><span></span></div>`;
+  screen.querySelector("strong").textContent = title;
+  screen.querySelector("span").textContent = text;
+}
+
+async function lookup(raw) {
+  const q = raw.trim().toLowerCase().replace(/\s+/g, "-").replace(/^#?0*(\d)/, "$1");
+  if (!q) return message("Type a Pokémon", "Enter a name like “mewtwo” or a number like 150.");
+  const token = current = Symbol();
+  message("Searching…", `Looking up “${raw.trim()}”`);
+  try {
+    const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(q)}`);
+    if (token !== current) return;
+    if (res.status === 404) return message("No Pokémon found", `Nothing matches “${raw.trim()}”. Check the spelling and try again.`);
+    if (!res.ok) throw new Error(res.status);
+    show(await res.json());
+  } catch (e) {
+    if (token === current) message("Couldn’t reach PokeAPI", "Check your internet connection and try again.");
+  }
+}
+
+function show(p) {
+  const img = p.sprites.other?.["official-artwork"]?.front_default || p.sprites.front_default;
+  const m = p.height / 10, kg = p.weight / 10;
+  const ft = m * 3.28084, inch = Math.round((ft % 1) * 12);
+  screen.innerHTML = `
+    <div class="head"><h2 class="name"></h2><span class="id">#${String(p.id).padStart(4, "0")}</span></div>
+    <div class="art">${img ? `<img alt="">` : `<span class="msg">No image</span>`}</div>
+    <div class="types">${p.types.map(t => `<span class="type" style="background:${TYPE_COLORS[t.type.name] || "#777"}">${t.type.name}</span>`).join("")}</div>
+    <dl class="stats">
+      <div><dt>Name</dt><dd class="nm"></dd></div>
+      <div><dt>ID</dt><dd>${p.id}</dd></div>
+      <div><dt>Height</dt><dd>${m.toFixed(1)} m <small>(${Math.floor(ft)}′${inch}″)</small></dd></div>
+      <div><dt>Weight</dt><dd>${kg.toFixed(1)} kg <small>(${(kg * 2.20462).toFixed(1)} lb)</small></dd></div>
+    </dl>`;
+  const name = p.name.replace(/-/g, " ");
+  screen.querySelector(".name").textContent = name;
+  screen.querySelector(".nm").textContent = name;
+  if (img) { const el = screen.querySelector("img"); el.src = img; el.alt = name; }
+}
+
+document.getElementById("form").addEventListener("submit", e => { e.preventDefault(); lookup(input.value); });
+input.value = "pikachu";
+lookup("pikachu");
+</script>
+</body>
+</html>

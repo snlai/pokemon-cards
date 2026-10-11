@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pokémon Card Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: same Pokédex shell as the lookup page; a summary with card counts, language tabs, a binder-style grid, and a detail sheet on click. */
+:root {
+  --shell: #d7263d;
+  --shell-dark: #a51a2c;
+  --bg: #f2eff0;
+  --screen: #ffffff;
+  --ink: #1e1a1c;
+  --muted: #6b6266;
+  --line: #e2dcde;
+  --price: #1d8a4e;
+  --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --body: "Barlow", "Segoe UI", "Yu Gothic UI", "Microsoft JhengHei", "Malgun Gothic", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --shell: #b81f33; --shell-dark: #7d1422; --bg: #151213; --screen: #221d1f;
+    --ink: #f1ecee; --muted: #a59a9e; --line: #3a3235; --price: #4cd38a; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink); font: 16px/1.5 var(--body); padding: 32px 16px; }
+.dex {
+  max-width: 980px; margin: 0 auto; background: var(--shell); border-radius: 20px; padding: 20px;
+  box-shadow: inset 0 -6px 0 var(--shell-dark), 0 10px 30px rgb(0 0 0 / 0.18);
+  display: flex; flex-direction: column; gap: 16px;
+}
+.top { display: flex; align-items: center; gap: 12px; }
+.lens { width: 44px; height: 44px; border-radius: 50%; flex: none; border: 4px solid #fff;
+  background: radial-gradient(circle at 35% 35%, #bfe3ff 0 18%, #3d9cf5 40%, #1458a8 100%); }
+.leds { display: flex; gap: 6px; }
+.leds i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+.leds i:nth-child(1) { background: #ff5964; } .leds i:nth-child(2) { background: #ffd23f; } .leds i:nth-child(3) { background: #3ddc84; }
+h1 { margin: 0 0 0 auto; font: 700 1.3rem/1 var(--display); color: #fff; letter-spacing: 0.06em; text-transform: uppercase; }
+
+form { display: flex; gap: 8px; }
+input[type="search"] { flex: 1; min-width: 0; font: 500 1rem var(--body); padding: 12px 14px; border-radius: 10px; border: 0; background: var(--screen); color: var(--ink); }
+button { font: 700 0.95rem var(--display); letter-spacing: 0.05em; text-transform: uppercase; padding: 12px 18px;
+  border-radius: 10px; border: 0; cursor: pointer; background: var(--ink); color: var(--screen); }
+button:focus-visible, input:focus-visible, .card:focus-visible { outline: 3px solid #ffd23f; outline-offset: 2px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { font: 600 0.8rem var(--body); text-transform: capitalize; letter-spacing: 0; padding: 5px 10px;
+  background: rgb(255 255 255 / 0.18); color: #fff; border-radius: 999px; }
+.chips button:hover { background: rgb(255 255 255 / 0.3); }
+
+.screen { background: var(--screen); border-radius: 12px; padding: 16px; min-height: 360px; border: 6px solid var(--shell-dark);
+  display: flex; flex-direction: column; gap: 14px; }
+
+.summary { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;
+  border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+.summary h2 { margin: 0; font: 700 1.9rem/1.1 var(--display); text-transform: capitalize; text-wrap: balance; }
+.summary .sub { margin: 2px 0 0; }
+.total { text-align: right; }
+.total b { display: block; font: 700 2.4rem/1 var(--display); font-variant-numeric: tabular-nums; color: var(--shell); }
+.total span { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabs button { font: 600 0.82rem var(--body); letter-spacing: 0; text-transform: none; padding: 7px 12px; border-radius: 999px;
+  background: transparent; color: var(--ink); border: 1px solid var(--line); display: inline-flex; gap: 8px; align-items: baseline; }
+.tabs button b { font: 500 0.8rem var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.tabs button[aria-pressed="true"] { background: var(--ink); color: var(--screen); border-color: var(--ink); }
+.tabs button[aria-pressed="true"] b { color: var(--screen); opacity: 0.75; }
+.tabs button.err b { color: var(--shell); }
+
+.bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; align-items: center; }
+.count { margin: 0; font-size: 0.85rem; color: var(--muted); }
+.toggle { font-size: 0.85rem; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
+.card { all: unset; cursor: pointer; display: flex; flex-direction: column; gap: 4px; border-radius: 8px; min-width: 0; }
+.card .pic { aspect-ratio: 245 / 342; border-radius: 6px; background: var(--line); overflow: hidden;
+  transition: transform 0.15s; display: grid; place-items: center; color: var(--muted); font-size: 0.8rem; text-align: center; padding: 0; }
+.card:hover .pic { transform: translateY(-3px) rotate(-1deg); }
+.card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card span { font-size: 0.85rem; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.card small { font: 500 0.72rem var(--mono); color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; }
+.card small i { font-style: normal; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.more { align-self: center; }
+.msg { margin: auto; text-align: center; color: var(--muted); max-width: 44ch; }
+.msg strong { display: block; color: var(--ink); font: 700 1.2rem var(--display); }
+.foot { margin: 0; font-size: 0.75rem; color: rgb(255 255 255 / 0.85); text-align: center; text-wrap: balance; }
+.foot a { color: #fff; }
+
+dialog { border: 0; padding: 0; border-radius: 16px; background: var(--screen); color: var(--ink);
+  width: min(820px, calc(100% - 32px)); max-height: calc(100% - 32px); }
+dialog::backdrop { background: rgb(20 10 12 / 0.6); }
+.sheet { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 24px; padding: 24px; position: relative; }
+@media (max-width: 640px) { .sheet { grid-template-columns: 1fr; } .sheet .big { max-width: 300px; justify-self: center; width: 100%; } }
+.close { position: absolute; top: 10px; right: 10px; padding: 6px 12px; font-size: 0.8rem; }
+.big { width: 100%; aspect-ratio: 245 / 342; border-radius: 12px; background: var(--line); overflow: hidden; display: grid; place-items: center; }
+.big img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.info { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.info h2 { margin: 0; font: 700 1.8rem/1.1 var(--display); padding-right: 70px; text-wrap: balance; }
+.sub { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 0; }
+.facts div { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.facts dt { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.facts dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+h3 { margin: 0; font: 700 0.8rem var(--display); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.atk { border-top: 1px solid var(--line); padding-top: 8px; display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; }
+.atk b { font-weight: 600; } .atk .dmg { font: 500 1rem var(--mono); }
+.atk p { grid-column: 1 / -1; margin: 0; font-size: 0.88rem; color: var(--muted); }
+.cost { font-size: 0.72rem; color: var(--muted); }
+.prices { display: flex; flex-wrap: wrap; gap: 8px; }
+.prices div { border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; font-size: 0.8rem; }
+.prices b { display: block; font: 500 1.05rem var(--mono); color: var(--price); font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .card .pic { transition: none; } }
+</style>
+</head>
+<body>
+<main class="dex">
+  <div class="top">
+    <div class="lens" aria-hidden="true"></div>
+    <div class="leds" aria-hidden="true"><i></i><i></i><i></i></div>
+    <h1>Card Finder</h1>
+  </div>
+  <form id="form">
+    <label for="q" hidden>Pokémon or card name</label>
+    <input id="q" type="search" placeholder="Pokémon name or number, e.g. charizard or 6" autocomplete="off" spellcheck="false">
+    <button type="submit">Search</button>
+  </form>
+  <div class="chips" id="chips"></div>
+  <section class="screen" id="screen" aria-live="polite"></section>
+  <p class="foot">Card data and images from <a href="https://tcgdex.dev/" target="_blank" rel="noopener">TCGdex</a>, Pokémon names from <a href="https://pokeapi.co/" target="_blank" rel="noopener">PokeAPI</a>. Counts cover the cards TCGdex has recorded, which is not yet every printed card. Prices are TCGplayer (USD) and Cardmarket (EUR) market data.</p>
+</main>
+
+<dialog id="dlg"><div class="sheet" id="sheet"></div></dialog>
+
+<script>
+const TCG = "https://api.tcgdex.net/v2";
+const PAGE = 48;
+// code: TCGdex language; pokeapi: PokeAPI name languages to try, in order
+const LANGS = [
+  { code: "en",    short: "EN", label: "English",            pokeapi: ["en"] },
+  { code: "ja",    short: "JP", label: "日本語 Japanese",     pokeapi: ["ja", "ja-hrkt"] },
+  { code: "zh-tw", short: "繁", label: "繁體中文 Trad. Chinese", pokeapi: ["zh-hant"] },
+  { code: "zh-cn", short: "简", label: "简体中文 Simp. Chinese", pokeapi: ["zh-hans"] },
+  { code: "ko",    short: "KR", label: "한국어 Korean",        pokeapi: ["ko"] }
+];
+const screen = document.getElementById("screen");
+const input = document.getElementById("q");
+const dlg = document.getElementById("dlg");
+let S = null, token = null;
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const img = (base, q) => base ? `${base}/${q}.webp` : "";
+const num = n => n.toLocaleString();
+
+["pikachu", "charizard", "mewtwo", "umbreon", "rayquaza", "professor"].forEach(n => {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = n;
+  b.onclick = () => { input.value = n; start(n); };
+  document.getElementById("chips").appendChild(b);
+});
+
+function message(title, text) {
+  screen.innerHTML = `<div class="msg"><strong>${esc(title)}</strong>${esc(text)}</div>`;
+}
+
+async function getJSON(url) {
+  const res = await fetch(url);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(res.status);
+  return res.json();
+}
+
+// Look up the Pokémon on PokeAPI to get its Pokédex number and its name in each language.
+async function resolveSpecies(q) {
+  const slug = q.toLowerCase().replace(/[.']/g, "").replace(/\s+/g, "-").replace(/^#?0*(\d)/, "$1");
+  if (!/^[a-z0-9-]+$/.test(slug)) return null;
+  let sp = await getJSON(`https://pokeapi.co/api/v2/pokemon-species/${slug}`).catch(() => null);
+  if (!sp) {
+    const p = await getJSON(`https://pokeapi.co/api/v2/pokemon/${slug}`).catch(() => null);
+    if (p) sp = await getJSON(p.species.url).catch(() => null);
+  }
+  if (!sp) return null;
+  const nameIn = langs => langs.map(l => sp.names.find(n => n.language.name === l)?.name).find(Boolean);
+  return { id: sp.id, names: Object.fromEntries(LANGS.map(L => [L.code, nameIn(L.pokeapi)])) };
+}
+
+// All cards in one language: cards whose name contains the local name, plus cards tagged with the Pokédex number.
+async function fetchLang(L, name, dexId) {
+  const urls = [];
+  if (name) urls.push(`${TCG}/${L.code}/cards?name=${encodeURIComponent(name)}`);
+  if (dexId) urls.push(`${TCG}/${L.code}/cards?dexId=eq:${dexId}`);
+  const lists = await Promise.all(urls.map(u => getJSON(u).then(r => r || [])));
+  const seen = new Map();
+  for (const c of lists.flat()) if (!seen.has(c.id)) seen.set(c.id, { ...c, lang: L.code });
+  return [...seen.values()];
+}
+
+async function start(raw) {
+  const q = raw.trim();
+  if (!q) return message("Search for a card", "Type a Pokémon name or number, like “Charizard” or “6”. Trainer card names like “Professor” work too.");
+  const t = token = Symbol();
+  message("Searching…", `Looking up cards for “${q}” in 5 languages`);
+
+  const species = await resolveSpecies(q);
+  if (t !== token) return;
+  const results = await Promise.all(LANGS.map(L => {
+    const name = species ? species.names[L.code] : q;
+    return fetchLang(L, name, species?.id).then(cards => ({ cards }), () => ({ cards: [], error: true }));
+  }));
+  if (t !== token) return;
+
+  if (results.every(r => r.error)) return message("Couldn’t reach TCGdex", "Check your internet connection and try again.");
+  const all = results.flatMap(r => r.cards);
+  S = {
+    q, species, all, filter: "all", showNoImg: false, shown: PAGE,
+    perLang: Object.fromEntries(LANGS.map((L, i) => [L.code, results[i]]))
+  };
+  if (!all.length) return message("No cards found", `No cards match “${q}” in any language. Check the spelling and try again.`);
+  render();
+}
+
+function render() {
+  const sp = S.species;
+  const localNames = sp ? [...new Set(LANGS.slice(1).map(L => sp.names[L.code]).filter(Boolean))] : [];
+  const title = sp ? (sp.names.en || S.q) : `“${S.q}”`;
+  const sub = sp ? [`#${String(sp.id).padStart(4, "0")}`, ...localNames].join(" · ") : "Card names containing this text";
+
+  const inLang = S.filter === "all" ? S.all : S.all.filter(c => c.lang === S.filter);
+  const withImg = inLang.filter(c => c.image);
+  const list = S.showNoImg ? [...withImg, ...inLang.filter(c => !c.image)] : withImg;
+  const noImg = inLang.length - withImg.length;
+
+  const tab = (code, label, n, err) =>
+    `<button type="button" data-f="${code}" aria-pressed="${S.filter === code}" class="${err ? "err" : ""}"
+      title="${err ? "Couldn’t load this language. Search again to retry." : ""}">${esc(label)} <b>${err ? "!" : num(n)}</b></button>`;
+
+  screen.innerHTML = `
+    <div class="summary">
+      <div><h2>${esc(title)}</h2><p class="sub">${esc(sub)}</p></div>
+      <div class="total"><b>${num(S.all.length)}</b><span>cards in all languages</span></div>
+    </div>
+    <div class="tabs" role="group" aria-label="Card language">
+      ${tab("all", "All", S.all.length)}
+      ${LANGS.map(L => tab(L.code, L.label, S.perLang[L.code].cards.length, S.perLang[L.code].error)).join("")}
+    </div>
+    <div class="bar">
+      <p class="count"></p>
+      ${noImg ? `<label class="toggle"><input type="checkbox" id="noimg" ${S.showNoImg ? "checked" : ""}> Show ${num(noImg)} without a picture</label>` : ""}
+    </div>
+    <div class="grid" id="grid"></div>
+    <button type="button" class="more" id="more">Load more</button>`;
+
+  const grid = document.getElementById("grid");
+  const visible = list.slice(0, S.shown);
+  for (const c of visible) {
+    const L = LANGS.find(l => l.code === c.lang);
+    const b = document.createElement("button");
+    b.className = "card"; b.type = "button";
+    b.innerHTML = `<div class="pic">${c.image ? `<img loading="lazy" src="${esc(img(c.image, "low"))}" alt="">` : "No picture yet"}</div>
+      <span>${esc(c.name)}</span><small><i>${esc(L.short)}</i>${esc(c.id)}</small>`;
+    b.onclick = () => openCard(c.lang, c.id);
+    grid.appendChild(b);
+  }
+
+  const count = screen.querySelector(".count");
+  if (!list.length) count.textContent = inLang.length ? "None of these cards have a picture yet. Tick the box to list them anyway." : "No cards in this language yet.";
+  else count.textContent = `Showing ${num(visible.length)} of ${num(list.length)}. Click a card for details.`;
+  document.getElementById("more").hidden = visible.length >= list.length;
+  document.getElementById("more").onclick = () => { S.shown += PAGE; render(); };
+  screen.querySelectorAll(".tabs button").forEach(b => b.onclick = () => { S.filter = b.dataset.f; S.shown = PAGE; render(); });
+  const box = document.getElementById("noimg");
+  if (box) box.onchange = () => { S.showNoImg = box.checked; render(); };
+}
+
+async function openCard(lang, id) {
+  const sheet = document.getElementById("sheet");
+  sheet.innerHTML = `<div class="msg" style="grid-column:1/-1;padding:40px"><strong>Loading card…</strong></div>`;
+  if (!dlg.open) dlg.showModal();
+  try {
+    const c = await getJSON(`${TCG}/${lang}/cards/${encodeURIComponent(id)}`);
+    if (!c) throw new Error("missing");
+    renderCard(c, lang);
+  } catch (e) {
+    sheet.innerHTML = `<div class="msg" style="grid-column:1/-1;padding:40px"><strong>Couldn’t load this card</strong>Check your connection and try again.</div>
+      <button type="button" class="close" onclick="dlg.close()">Close</button>`;
+  }
+}
+
+function priceList(p) {
+  const out = [];
+  const tp = p?.tcgplayer;
+  if (tp) for (const [k, v] of Object.entries(tp)) {
+    if (v && typeof v === "object" && v.marketPrice != null)
+      out.push([`TCGplayer · ${k.replace(/-/g, " ")}`, `$${v.marketPrice.toFixed(2)}`]);
+  }
+  const cm = p?.cardmarket;
+  if (cm?.trend != null) out.push(["Cardmarket · trend", `€${cm.trend.toFixed(2)}`]);
+  return out;
+}
+
+function renderCard(c, lang) {
+  const L = LANGS.find(l => l.code === lang);
+  const official = c.set?.cardCount?.official;
+  const facts = [
+    ["Language", L.label],
+    ["Set", c.set?.name],
+    ["Number", official ? `${c.localId} / ${official}` : c.localId],
+    ["Rarity", c.rarity],
+    ["Category", c.category],
+    ["Stage", c.stage],
+    ["HP", c.hp],
+    ["Type", c.types?.join(", ")],
+    ["Weakness", c.weaknesses?.map(w => `${w.type} ${w.value ?? ""}`).join(", ")],
+    ["Resistance", c.resistances?.map(w => `${w.type} ${w.value ?? ""}`).join(", ")],
+    ["Retreat", c.retreat],
+    ["Illustrator", c.illustrator],
+    ["Pokédex #", c.dexId?.join(", ")],
+    ["Standard legal", c.legal && lang === "en" ? (c.legal.standard ? "Yes" : "No") : null]
+  ].filter(([, v]) => v !== undefined && v !== null && v !== "");
+
+  const attacks = (c.attacks || []).map(a => `
+    <div class="atk">
+      <b>${esc(a.name)} <span class="cost">${esc((a.cost || []).join(" · "))}</span></b>
+      <span class="dmg">${esc(a.damage ?? "")}</span>
+      ${a.effect ? `<p>${esc(a.effect)}</p>` : ""}
+    </div>`).join("");
+  const abilities = (c.abilities || []).map(a => `
+    <div class="atk"><b>${esc(a.type || "Ability")}: ${esc(a.name)}</b><span></span>${a.effect ? `<p>${esc(a.effect)}</p>` : ""}</div>`).join("");
+  const prices = priceList(c.pricing);
+
+  document.getElementById("sheet").innerHTML = `
+    <button type="button" class="close" id="close">Close</button>
+    <div class="big">${c.image ? `<img src="${esc(img(c.image, "high"))}" alt="${esc(c.name)} card">` : `<div class="msg" style="padding:40px">No picture yet</div>`}</div>
+    <div class="info">
+      <div><h2>${esc(c.name)}</h2><p class="sub">${esc(c.set?.name ?? "")} · ${esc(c.id)}</p></div>
+      <dl class="facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>
+      ${abilities || attacks ? `<h3>${abilities ? "Abilities & attacks" : "Attacks"}</h3>${abilities}${attacks}` : ""}
+      ${c.effect ? `<h3>Effect</h3><p class="sub">${esc(c.effect)}</p>` : ""}
+      ${c.description ? `<h3>Flavor text</h3><p class="sub">${esc(c.description)}</p>` : ""}
+      ${prices.length ? `<h3>Market price</h3><div class="prices">${prices.map(([k, v]) => `<div>${esc(k)}<b>${esc(v)}</b></div>`).join("")}</div>` : ""}
+    </div>`;
+  document.getElementById("close").onclick = () => dlg.close();
+}
+
+dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+document.getElementById("form").addEventListener("submit", e => { e.preventDefault(); start(input.value); });
+input.value = "pikachu";
+start("pikachu");
+</script>
+</body>
+</html>
