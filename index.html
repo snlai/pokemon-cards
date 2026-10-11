@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <style>
-/* Layout: same Pokédex shell as the lookup page; a summary with card counts, language tabs, a binder-style grid, and a detail sheet on click. */
+/* Layout: same Pokédex shell as the lookup page; a summary with card counts, language and sort dropdowns, a binder-style grid, and a detail sheet on click. */
 :root {
   --shell: #d7263d;
   --shell-dark: #a51a2c;
@@ -48,10 +48,16 @@ input[type="search"] { flex: 1; min-width: 0; font: 500 1rem var(--body); paddin
 button { font: 700 0.95rem var(--display); letter-spacing: 0.05em; text-transform: uppercase; padding: 12px 18px;
   border-radius: 10px; border: 0; cursor: pointer; background: var(--ink); color: var(--screen); }
 button:focus-visible, input:focus-visible, .card:focus-visible { outline: 3px solid #ffd23f; outline-offset: 2px; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chips button { font: 600 0.8rem var(--body); text-transform: capitalize; letter-spacing: 0; padding: 5px 10px;
-  background: rgb(255 255 255 / 0.18); color: #fff; border-radius: 999px; }
-.chips button:hover { background: rgb(255 255 255 / 0.3); }
+select { font: 500 0.92rem var(--body); padding: 9px 32px 9px 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--screen); color: var(--ink); cursor: pointer; max-width: 100%; appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+select:focus-visible { outline: 3px solid #ffd23f; outline-offset: 2px; }
+.pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: #fff; font-size: 0.85rem; font-weight: 600; }
+.pick select { border-color: transparent; }
+.filters { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field span { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 
 .screen { background: var(--screen); border-radius: 12px; padding: 16px; min-height: 360px; border: 6px solid var(--shell-dark);
   display: flex; flex-direction: column; gap: 14px; }
@@ -64,13 +70,6 @@ button:focus-visible, input:focus-visible, .card:focus-visible { outline: 3px so
 .total b { display: block; font: 700 2.4rem/1 var(--display); font-variant-numeric: tabular-nums; color: var(--shell); }
 .total span { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 
-.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
-.tabs button { font: 600 0.82rem var(--body); letter-spacing: 0; text-transform: none; padding: 7px 12px; border-radius: 999px;
-  background: transparent; color: var(--ink); border: 1px solid var(--line); display: inline-flex; gap: 8px; align-items: baseline; }
-.tabs button b { font: 500 0.8rem var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
-.tabs button[aria-pressed="true"] { background: var(--ink); color: var(--screen); border-color: var(--ink); }
-.tabs button[aria-pressed="true"] b { color: var(--screen); opacity: 0.75; }
-.tabs button.err b { color: var(--shell); }
 
 .bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; align-items: center; }
 .count { margin: 0; font-size: 0.85rem; color: var(--muted); }
@@ -129,7 +128,17 @@ h3 { margin: 0; font: 700 0.8rem var(--display); text-transform: uppercase; lett
     <input id="q" type="search" placeholder="Pokémon name or number, e.g. charizard or 6" autocomplete="off" spellcheck="false">
     <button type="submit">Search</button>
   </form>
-  <div class="chips" id="chips"></div>
+  <label class="pick" for="pick">Or pick one:
+    <select id="pick">
+      <option value="">Choose a Pokémon…</option>
+      <option>Pikachu</option><option>Charizard</option><option>Bulbasaur</option><option>Squirtle</option>
+      <option>Eevee</option><option>Snorlax</option><option>Gengar</option><option>Mew</option>
+      <option>Mewtwo</option><option>Lugia</option><option>Umbreon</option><option>Lucario</option>
+      <option>Greninja</option><option>Rayquaza</option><option>Gardevoir</option><option>Dragonite</option>
+      <option>Gyarados</option><option>Sylveon</option>
+      <option value="professor">Professor (trainer cards)</option>
+    </select>
+  </label>
   <section class="screen" id="screen" aria-live="polite"></section>
   <p class="foot">Card data and images from <a href="https://tcgdex.dev/" target="_blank" rel="noopener">TCGdex</a>, Pokémon names from <a href="https://pokeapi.co/" target="_blank" rel="noopener">PokeAPI</a>. Counts cover the cards TCGdex has recorded, which is not yet every printed card. Prices are TCGplayer (USD) and Cardmarket (EUR) market data.</p>
 </main>
@@ -156,12 +165,16 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&
 const img = (base, q) => base ? `${base}/${q}.webp` : "";
 const num = n => n.toLocaleString();
 
-["pikachu", "charizard", "mewtwo", "umbreon", "rayquaza", "professor"].forEach(n => {
-  const b = document.createElement("button");
-  b.type = "button"; b.textContent = n;
-  b.onclick = () => { input.value = n; start(n); };
-  document.getElementById("chips").appendChild(b);
-});
+const pick = document.getElementById("pick");
+pick.onchange = () => { if (pick.value) { input.value = pick.value; start(pick.value); } };
+input.addEventListener("input", () => { pick.value = ""; });
+
+const SORTS = {
+  default: { label: "Database order" },
+  name:    { label: "Name (A–Z)",  cmp: (a, b) => a.name.localeCompare(b.name) },
+  number:  { label: "Card number", cmp: (a, b) => (parseInt(a.localId) || 0) - (parseInt(b.localId) || 0) || String(a.localId).localeCompare(String(b.localId)) },
+  set:     { label: "Set",         cmp: (a, b) => a.id.split("-").slice(0, -1).join("-").localeCompare(b.id.split("-").slice(0, -1).join("-")) || (parseInt(a.localId) || 0) - (parseInt(b.localId) || 0) }
+};
 
 function message(title, text) {
   screen.innerHTML = `<div class="msg"><strong>${esc(title)}</strong>${esc(text)}</div>`;
@@ -216,7 +229,7 @@ async function start(raw) {
   if (results.every(r => r.error)) return message("Couldn’t reach TCGdex", "Check your internet connection and try again.");
   const all = results.flatMap(r => r.cards);
   S = {
-    q, species, all, filter: "all", showNoImg: false, shown: PAGE,
+    q, species, all, filter: "all", sort: S?.sort ?? "default", showNoImg: false, shown: PAGE,
     perLang: Object.fromEntries(LANGS.map((L, i) => [L.code, results[i]]))
   };
   if (!all.length) return message("No cards found", `No cards match “${q}” in any language. Check the spelling and try again.`);
@@ -230,22 +243,27 @@ function render() {
   const sub = sp ? [`#${String(sp.id).padStart(4, "0")}`, ...localNames].join(" · ") : "Card names containing this text";
 
   const inLang = S.filter === "all" ? S.all : S.all.filter(c => c.lang === S.filter);
-  const withImg = inLang.filter(c => c.image);
-  const list = S.showNoImg ? [...withImg, ...inLang.filter(c => !c.image)] : withImg;
+  const sorted = SORTS[S.sort].cmp ? [...inLang].sort(SORTS[S.sort].cmp) : inLang;
+  const withImg = sorted.filter(c => c.image);
+  const list = S.showNoImg ? [...withImg, ...sorted.filter(c => !c.image)] : withImg;
   const noImg = inLang.length - withImg.length;
 
-  const tab = (code, label, n, err) =>
-    `<button type="button" data-f="${code}" aria-pressed="${S.filter === code}" class="${err ? "err" : ""}"
-      title="${err ? "Couldn’t load this language. Search again to retry." : ""}">${esc(label)} <b>${err ? "!" : num(n)}</b></button>`;
+  const opt = (value, label, current) => `<option value="${value}" ${value === current ? "selected" : ""}>${esc(label)}</option>`;
+  const langOpts = [opt("all", `All languages (${num(S.all.length)})`, S.filter)].concat(LANGS.map(L => {
+    const r = S.perLang[L.code];
+    return opt(L.code, `${L.label} (${r.error ? "couldn’t load" : num(r.cards.length)})`, S.filter);
+  })).join("");
+  const sortOpts = Object.entries(SORTS).map(([k, v]) => opt(k, v.label, S.sort)).join("");
+  const focused = document.activeElement?.id;
 
   screen.innerHTML = `
     <div class="summary">
       <div><h2>${esc(title)}</h2><p class="sub">${esc(sub)}</p></div>
       <div class="total"><b>${num(S.all.length)}</b><span>cards in all languages</span></div>
     </div>
-    <div class="tabs" role="group" aria-label="Card language">
-      ${tab("all", "All", S.all.length)}
-      ${LANGS.map(L => tab(L.code, L.label, S.perLang[L.code].cards.length, S.perLang[L.code].error)).join("")}
+    <div class="filters">
+      <label class="field" for="lang"><span>Language</span><select id="lang">${langOpts}</select></label>
+      <label class="field" for="sort"><span>Sort by</span><select id="sort">${sortOpts}</select></label>
     </div>
     <div class="bar">
       <p class="count"></p>
@@ -271,9 +289,11 @@ function render() {
   else count.textContent = `Showing ${num(visible.length)} of ${num(list.length)}. Click a card for details.`;
   document.getElementById("more").hidden = visible.length >= list.length;
   document.getElementById("more").onclick = () => { S.shown += PAGE; render(); };
-  screen.querySelectorAll(".tabs button").forEach(b => b.onclick = () => { S.filter = b.dataset.f; S.shown = PAGE; render(); });
+  document.getElementById("lang").onchange = e => { S.filter = e.target.value; S.shown = PAGE; render(); };
+  document.getElementById("sort").onchange = e => { S.sort = e.target.value; S.shown = PAGE; render(); };
   const box = document.getElementById("noimg");
   if (box) box.onchange = () => { S.showNoImg = box.checked; render(); };
+  if (focused) document.getElementById(focused)?.focus();
 }
 
 async function openCard(lang, id) {
@@ -303,23 +323,11 @@ function priceList(p) {
 }
 
 function renderCard(c, lang) {
-  const L = LANGS.find(l => l.code === lang);
-  const official = c.set?.cardCount?.official;
   const facts = [
-    ["Language", L.label],
     ["Set", c.set?.name],
-    ["Number", official ? `${c.localId} / ${official}` : c.localId],
-    ["Rarity", c.rarity],
-    ["Category", c.category],
-    ["Stage", c.stage],
-    ["HP", c.hp],
     ["Type", c.types?.join(", ")],
-    ["Weakness", c.weaknesses?.map(w => `${w.type} ${w.value ?? ""}`).join(", ")],
     ["Resistance", c.resistances?.map(w => `${w.type} ${w.value ?? ""}`).join(", ")],
-    ["Retreat", c.retreat],
-    ["Illustrator", c.illustrator],
-    ["Pokédex #", c.dexId?.join(", ")],
-    ["Standard legal", c.legal && lang === "en" ? (c.legal.standard ? "Yes" : "No") : null]
+    ["Illustrator", c.illustrator]
   ].filter(([, v]) => v !== undefined && v !== null && v !== "");
 
   const attacks = (c.attacks || []).map(a => `
@@ -340,7 +348,6 @@ function renderCard(c, lang) {
       <dl class="facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>
       ${abilities || attacks ? `<h3>${abilities ? "Abilities & attacks" : "Attacks"}</h3>${abilities}${attacks}` : ""}
       ${c.effect ? `<h3>Effect</h3><p class="sub">${esc(c.effect)}</p>` : ""}
-      ${c.description ? `<h3>Flavor text</h3><p class="sub">${esc(c.description)}</p>` : ""}
       ${prices.length ? `<h3>Market price</h3><div class="prices">${prices.map(([k, v]) => `<div>${esc(k)}<b>${esc(v)}</b></div>`).join("")}</div>` : ""}
     </div>`;
   document.getElementById("close").onclick = () => dlg.close();
